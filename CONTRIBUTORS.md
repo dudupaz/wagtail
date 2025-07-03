@@ -895,6 +895,11 @@
 * Andrew Hosgood
 * Mustopha Mubarak O
 * Ziyao Yan
+* Anees Asghar
+* Rachel Smith
+* Talha Rizwan
+* Ellie Walsh-O'Neill
+* M. Sumair Khokhar
 
 ## Translators
 

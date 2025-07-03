@@ -3193,6 +3193,93 @@ class TestSubpageTypeBusinessRules(WagtailTestUtils, TestCase):
         # A second singleton page should not be creatable
         self.assertFalse(SingletonPage.can_create_at(root_page))
 
+def test_nao_criavel_nem_permitido():
+    class DummyPage:
+        is_creatable = False
+        can_exist_under = staticmethod(lambda parent: False)
+
+        @classmethod
+        def can_create_at(cls, parent):
+            can_create = cls.is_creatable and cls.can_exist_under(parent)
+            return can_create
+
+    assert not DummyPage.can_create_at(object())
+
+
+def test_criavel_mas_nao_permitido():
+    class DummyPage:
+        is_creatable = True
+        can_exist_under = staticmethod(lambda parent: False)
+
+        @classmethod
+        def can_create_at(cls, parent):
+            can_create = cls.is_creatable and cls.can_exist_under(parent)
+            return can_create
+
+    assert not DummyPage.can_create_at(object())
+
+
+def test_limite_global_excedido():
+    class DummyPage:
+        is_creatable = True
+        can_exist_under = staticmethod(lambda parent: True)
+        max_count = 1
+        objects = type("Mock", (), {"count": staticmethod(lambda: 2)})()
+
+        @classmethod
+        def can_create_at(cls, parent):
+            can_create = cls.is_creatable and cls.can_exist_under(parent)
+            if cls.max_count is not None:
+                can_create = can_create and cls.objects.count() < cls.max_count
+            return can_create
+
+    assert not DummyPage.can_create_at(object())
+
+
+def test_limite_por_pai_excedido():
+    class DummyParent:
+        def get_children(self):
+            return type("QS", (), {"type": staticmethod(lambda cls: type("Mock", (), {"count": staticmethod(lambda: 3)})())})()
+
+    class DummyPage:
+        is_creatable = True
+        can_exist_under = staticmethod(lambda parent: True)
+        max_count_per_parent = 2
+        objects = type("Mock", (), {"count": staticmethod(lambda: 0)})()
+
+        @classmethod
+        def can_create_at(cls, parent):
+            can_create = cls.is_creatable and cls.can_exist_under(parent)
+            if cls.max_count_per_parent is not None:
+                can_create = can_create and parent.get_children().type(cls).count() < cls.max_count_per_parent
+            return can_create
+
+    assert not DummyPage.can_create_at(DummyParent())
+
+
+def test_todos_os_criterios_validos():
+    class DummyParent:
+        def get_children(self):
+            return type("QS", (), {"type": staticmethod(lambda cls: type("Mock", (), {"count": staticmethod(lambda: 1)})())})()
+
+    class DummyPage:
+        is_creatable = True
+        can_exist_under = staticmethod(lambda parent: True)
+        max_count = 5
+        max_count_per_parent = 3
+        objects = type("Mock", (), {"count": staticmethod(lambda: 1)})()
+
+        @classmethod
+        def can_create_at(cls, parent):
+            can_create = cls.is_creatable and cls.can_exist_under(parent)
+            if cls.max_count is not None:
+                can_create = can_create and cls.objects.count() < cls.max_count
+            if cls.max_count_per_parent is not None:
+                can_create = can_create and parent.get_children().type(cls).count() < cls.max_count_per_parent
+            return can_create
+
+    assert DummyPage.can_create_at(DummyParent())
+
 
 class TestIssue735(TestCase):
     """
